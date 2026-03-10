@@ -8,6 +8,11 @@
 #
 # Thank you for your contribution
 
+# Overwrite auto-detect in in container
+if [[ -v SINGULARITY_CONTAINER ]]; then
+  MACHINE_ID=container
+fi
+
 # If the MACHINE_ID variable is set, skip this script.
 [[ -n ${MACHINE_ID:-} ]] && return
 
@@ -32,6 +37,9 @@ case $(hostname -f) in
   ufe1[0-2]) MACHINE_ID=ursa ;; ### ursa10-12
   uecflow01) MACHINE_ID=ursa ;; ### ursaecflow01
 
+  der*) MACHINE_ID=derecho ;; ### derecho[1-8]
+  dec*) MACHINE_ID=derecho ;; ### decxxx computing node
+
   Orion-login-[1-4].HPC.MsState.Edu) MACHINE_ID=orion ;; ### orion1-4
 
   [Hh]ercules-login-[1-4].[Hh][Pp][Cc].[Mm]s[Ss]tate.[Ee]du) MACHINE_ID=hercules ;; ### hercules1-4
@@ -55,10 +63,7 @@ if [[ "${MACHINE_ID}" != "UNKNOWN" ]]; then
 fi
 
 # Try searching based on paths since hostname may not match on compute nodes
-if [[ -d /opt/spack-stack ]]; then
-  # We are in a container
-  MACHINE_ID=container
-elif [[ -d /lfs/h3 ]]; then
+if [[ -d /lfs/h3 ]]; then
   # We are on NOAA Cactus or Dogwood
   MACHINE_ID=wcoss2
 elif [[ -d /lfs/h1 && ! -d /lfs/h3 ]]; then
@@ -83,6 +88,9 @@ elif [[ -d /work ]]; then
 elif [[ -d /gpfs/f6 ]]; then
   # We are on GAEAC6.
   MACHINE_ID=gaeac6
+elif [[ -d /gpfs/csfs1 ]]; then
+  # We are on NCAR DERECHO.
+  MACHINE_ID=derecho
 else
   echo WARNING: UNKNOWN PLATFORM 1>&2
 fi

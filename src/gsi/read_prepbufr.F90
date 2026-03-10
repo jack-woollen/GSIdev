@@ -340,7 +340,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
   real(r_kind) qtflg,tdry,rmesh,ediff,usage,ediff_ps,ediff_q,ediff_t,ediff_uv,ediff_pw
   real(r_kind) u0,v0,uob,vob,rgustob,dx,dy,dx1,dy1,w00,w10,w01,w11
   real(r_kind) qoe,qobcon,pwoe,pwmerr,dlnpob,ppb,poe,gustoe,visoe,qmaxerr
-  real(r_kind) toe,woe,errout,oelev,dlat,dlon,sstoe,dlat_earth,dlon_earth
+  real(r_kind) toe,woe,errout,oelev,dlat,dlon,sstoe,dlat_earth,dlon_earth, t29
   real(r_kind) tdoe,mxtmoe,mitmoe,pmoe,howvoe,cldchoe
   real(r_kind) dlat_earth_deg,dlon_earth_deg
   real(r_kind) selev,elev,stnelev
@@ -365,6 +365,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
   real(r_kind) :: tempcldch,cldchout
   real(r_kind) :: windsensht
   real(r_kind) :: windbiasfact
+  real(r_kind) :: usage_valleyadj
 
   integer(i_kind) ivtcd,iglcd !integer virtual temp program code and GLERL program code
 
@@ -518,7 +519,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
      iqm = 11
      iuse = 13
   else if(psob) then
-     nreal=20
+     nreal=21
      iqm=10
      iuse = 12
   else if(qob) then
@@ -723,6 +724,8 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 
 !       Extract type information
         call ufbint(lunin,hdr,4,1,iret,hdstr2)
+        t29 = hdr(3)
+        it29 = nint(t29,r_double)
         kx=hdr(1)
         if (aircraft_t_bc .and. acft_profl_file) then
            kx0=kx
@@ -765,7 +768,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 
 ! identify drifting buoys - TYP=180/280 T29=562 and last three digits of SID between 500 and 999
 !  (see https://www.wmo.int/pages/prog/amp/mmop/wmo-number-rules.html)  Set kx to 199/299
-        if (id_drifter .and. (kx==180 .or. kx==280) .and. nint(hdr(3),r_double)==562) then
+        if (id_drifter .and. (kx==180 .or. kx==280) .and. it29==562) then
            rstation_id=hdr(4)
            read(c_station_id,*,iostat=ios) iwmo
            if (ios == 0 .and. iwmo > 0) then
@@ -775,7 +778,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
            end if
         end if
 
-        if (id_ship .and. (kx==180) .and. (nint(hdr(3),r_double)==522 .or. nint(hdr(3),r_double)==523)) then
+        if (id_ship .and. (kx==180) .and. (it29==522 .or. it29==523)) then
            rstation_id=hdr(4)
            kx = kx + 18
         end if
@@ -792,15 +795,14 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 
 ! temporary specify iobsub until put in bufr file
         iobsub = 0
-        if(kx == 280 .or. kx == 180 ) iobsub=hdr(3)
         if(kx == 280 .or. kx ==180) then
-          if ( hdr(3) >555.0_r_kind .and. hdr(3) <565.0_r_kind ) then
+          if ( it29 > 555 .and. it29 < 565.0_r_kind ) then
             iobsub=00
           else
             iobsub=01
           endif
           ! Set saildrone to subtype 02
-          if (nint(hdr(3)) == 560) iobsub = 02
+          if (it29 == 560) iobsub = 02
         endif
 ! Su suggested to keep both 289 and 290.  But trunk only keep 290
 !       if(kx == 289 .or. kx == 290) iobsub=hdr(2)
@@ -1035,6 +1037,8 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 !          Extract type, date, and location information
            call ufbint(lunin,hdr,8,1,iret,hdstr)
            kx=hdr(5)
+           t29 = hdr(8)
+           it29 = nint(t29,r_double)
 
            if (.not.(aircraft_t_bc .and. acft_profl_file)) then
               if(abs(hdr(3))>r90 .or. abs(hdr(2))>r360) cycle loop_readsb
@@ -1049,7 +1053,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 !
 ! identify drifting buoys - TYP=180/280 T29=562 and last three digits of SID between 500 and 999
 !  (see https://www.wmo.int/pages/prog/amp/mmop/wmo-number-rules.html)  Set kx to 199/299
-              if (id_drifter .and. (kx==180 .or. kx==280) .and. nint(hdr(8),r_double)==562) then
+              if (id_drifter .and. (kx==180 .or. kx==280) .and. it29==562) then
                  rstation_id=hdr(1)
                  read(c_station_id,*,iostat=ios) iwmo
                  if (ios == 0 .and. iwmo > 0) then
@@ -1059,7 +1063,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  end if
               end if
 
-              if (id_ship .and. (kx==180) .and. (nint(hdr(8),r_double)==522 .or. nint(hdr(8),r_double)==523) ) then
+              if (id_ship .and. (kx==180) .and. (it29==522 .or. it29==523) ) then
                  rstation_id=hdr(1)
                  kx = kx + 18
               end if
@@ -2058,6 +2062,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
 
               windbiasfact=one
 
+              usage_valleyadj=zero
               if (sfctype) then
                  if (i_gsdsfc_uselist==1 ) then
                     if (kx==188 .or. kx==195 .or. kx==288.or.kx==295)  &
@@ -2079,6 +2084,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                     call tll2xy(dlon_earth,dlat_earth,x_obs,y_obs,outside_obs)
                     if ((trim(obstype)=='t' .or. trim(obstype)=='q') .and. .not.outside_obs) then
                        call valley_adjustment(x_obs,y_obs,usage)
+                       usage_valleyadj=usage - REAL(INT(usage), kind=r_kind)
                     end if
                  end if
 
@@ -2144,7 +2150,6 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                        oelev=r10+selev
                     endif
                     if (kx == 280 )then
-                       it29=nint(hdr(8))
                        if(it29 == 522 .or. it29 == 523 .or. it29 == 531)then
 !                         oelev=r20+selev
                           oelev=r20
@@ -2284,6 +2289,13 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  rusage(iout)=.false.
               end if
 
+!             In case that the obs usage was reset by some ObsQC and the usage value adjusted by 
+!             valley-map was lost. So re-applying the valley-map adjusted usage value back to usage.
+              if (sfctype .and. (l_rtma3d .or. twodvar_regional) .and.          &
+                  (trim(obstype)=='t' .or. trim(obstype)=='q')   ) then
+                  usage=REAL(INT(usage), kind=r_kind) + usage_valleyadj
+              end if
+
 !             Temperature
               if(tob) then
                  ppb=obsdat(1,k)
@@ -2302,7 +2314,7 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  cdata_all(3,iout)=dlat                    ! grid relative latitude
                  cdata_all(4,iout)=dlnpob                  ! ln(pressure in cb)
 
-                 cdata_all(5,iout)=obsdat(3,k)+t0c               ! temperature ob.
+                 cdata_all(5,iout)=obsdat(3,k)+t0c         ! temperature ob.
                  cdata_all(6,iout)=rstation_id             ! station id
                  cdata_all(7,iout)=t4dv                    ! time
                  cdata_all(8,iout)=nc                      ! type
@@ -2322,7 +2334,11 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  cdata_all(21,iout)=zz                     ! terrain height at ob location
                  cdata_all(22,iout)=r_prvstg(1,1)          ! provider name
                  cdata_all(23,iout)=r_sprvstg(1,1)         ! subprovider name
-                 cdata_all(24,iout)=obsdat(10,k)           ! cat
+                 if (it29 > 500) then
+                    cdata_all(24,iout)=t29                 ! it29
+                 else
+                    cdata_all(24,iout)=obsdat(10,k)        ! cat
+                 end if
                  cdata_all(25,iout)=var_jb(3,k)            ! non linear qc for T
                  if (aircraft_t_bc_pof .or. aircraft_t_bc .or.aircraft_t_bc_ext) then
                     cdata_all(26,iout)=aircraftwk(1,k)     ! phase of flight
@@ -2388,7 +2404,11 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  cdata_all(21,iout)=zz                     ! terrain height at ob location
                  cdata_all(22,iout)=r_prvstg(1,1)          ! provider name
                  cdata_all(23,iout)=r_sprvstg(1,1)         ! subprovider name
-                 cdata_all(24,iout)=obsdat(10,k)           ! cat
+                 if (it29 > 500) then
+                    cdata_all(24,iout)=t29                 ! it29
+                 else
+                    cdata_all(24,iout)=obsdat(10,k)        ! cat
+                 end if
                  cdata_all(25,iout)=var_jb(5,k)            ! non linear qc parameter
                  cdata_all(26,iout)=one                    ! hilbert curve weight, modified later
                  cdata_all(27,iout)=windbiasfact           ! bias correction factor
@@ -2462,7 +2482,12 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  cdata_all(18,iout)=r_prvstg(1,1)          ! provider name
                  cdata_all(19,iout)=r_sprvstg(1,1)         ! subprovider name
                  cdata_all(20,iout)=var_jb(1,k)            ! non linear qc b parameter
-                 if(perturb_obs)cdata_all(21,iout)=ran01dom()*perturb_fact ! ps perturbation
+                 if (it29 > 500) then
+                    cdata_all(21,iout)=t29                 ! it29
+                 else
+                    cdata_all(21,iout)=obsdat(10,k)        ! cat
+                 end if
+                 if(perturb_obs)cdata_all(22,iout)=ran01dom()*perturb_fact ! ps perturbation
                  if (twodvar_regional) &
                     call adjust_error(cdata_all(14,iout),cdata_all(15,iout),cdata_all(11,iout),cdata_all(1,iout))
 
@@ -2511,7 +2536,11 @@ subroutine read_prepbufr(nread,ndata,nodata,infile,obstype,lunout,twindin,sis,&
                  cdata_all(19,iout)=zz                     ! terrain height at ob location
                  cdata_all(20,iout)=r_prvstg(1,1)          ! provider name
                  cdata_all(21,iout)=r_sprvstg(1,1)         ! subprovider name
-                 cdata_all(22,iout)=obsdat(10,k)           ! cat
+                 if (it29 > 500) then
+                    cdata_all(22,iout)=t29                 ! it29
+                 else
+                    cdata_all(22,iout)=obsdat(10,k)        ! cat
+                 end if
                  cdata_all(23,iout)=var_jb(2,k)            ! non linear qc b parameter
                  if(perturb_obs)cdata_all(24,iout)=ran01dom()*perturb_fact ! q perturbation
                  if (twodvar_regional) &

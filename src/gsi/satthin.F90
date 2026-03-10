@@ -146,7 +146,7 @@ module satthin
   public :: makegrids
   public :: getsfc
   public :: get_hsst
-  public :: map2tgrid,map2tgrid2,binit
+  public :: map2tgrid,map2tgrid2,binit,itx_all
   public :: destroygrids
   public :: destroy_sfc
   public :: indexx
@@ -1142,6 +1142,9 @@ contains
        iuse=.true.
        itt=1
        dist1=one
+       ! This subroutine is called from within an OpenMP region so we need to ensure
+       ! the threads don't race on the itx_all counter 
+       !$omp critical
        if(itx_all < itxmax) then
           itx_all=itx_all+1
        else
@@ -1149,6 +1152,7 @@ contains
           write(6,*)'MAP2TGRID2:  ndata > maxobs when reading data for ',sis,itxmax
        end if
        itx=itx_all
+       !$omp end critical
        return
     end if
 
@@ -1194,7 +1198,7 @@ contains
     return
   end subroutine map2tgrid2
 
-  subroutine binit(dlat_earth,dlon_earth,itx,it_mesh)
+  subroutine binit(dlat_earth,dlon_earth,itx,ithin,sis,it_mesh)
 !$$$  subprogram documentation block
 !                .      .    .                                       .
 ! subprogram:    binit
@@ -1214,9 +1218,10 @@ contains
 !     itx   - combined (i,j) index of observation on thinning grid
 !$$$
     implicit none
-
+    integer(i_kind),intent(in   ) :: ithin
     integer(i_kind),intent(  out) :: itx
     real(r_kind)   ,intent(in   ) :: dlat_earth,dlon_earth
+    character(20)  ,intent(in   ) :: sis
     integer(i_kind),intent(in   ), optional :: it_mesh
 
     integer(i_kind) ix,iy
@@ -1224,19 +1229,15 @@ contains
 
 
 !   If using all data (no thinning), simply return to calling routine
-!    if(use_all .or. ithin <= 0)then
-!       !iuse=.true.
-!       !itt=1
-!       !dist1=one
-!       if(itx_all < itxmax) then
-!          itx_all=itx_all+1
-!       else
-!          !iuse = .false.
-!          !write(6,*)'MAP2TGRID2:  ndata > maxobs when reading data for ',sis,itxmax
-!       end if
-!       itx=itx_all
-!       return
-!    end if
+    if(use_all .or. ithin <= 0)then
+       if(itx_all < itxmax) then
+          itx_all=itx_all+1
+       else
+          write(6,*)'binit:  ndata > maxobs when reading data for ',sis,itxmax
+       end if
+       itx=itx_all
+       return
+    end if
 
 !   Compute (i,j) indices of coarse mesh grid (grid number 1) which
 !   contains the current observation.
