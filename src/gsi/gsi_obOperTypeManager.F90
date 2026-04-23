@@ -328,6 +328,7 @@ function dtype2index_(dtype) result(index_)
     case("airs"   ); index_= iobOper_rad
     case("hsb"    ); index_= iobOper_rad
         !
+    case("irs"    ); index_= iobOper_rad
     case("iasi"   ); index_= iobOper_rad
     case("iasi-ng"); index_= iobOper_rad
     case("cris"   ); index_= iobOper_rad

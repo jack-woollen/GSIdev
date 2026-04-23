@@ -622,6 +622,7 @@ subroutine init_crtm(init_pass,mype_diaghdr,mype,nchanl,nreal,isis,obstype,radmo
     if (isis(1:4) == 'iasi' .or. &
         trim(isis) == 'amsua_aqua' .or. &
         isis(1:4) == 'airs' .or. &
+        isis(1:3) == 'irs'  .or. &
         isis(1:4) == 'cris' ) then
        subset_start = 0
        subset_end = 0
