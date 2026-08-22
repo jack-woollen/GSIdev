@@ -2,29 +2,22 @@
 !---------------------------------------------------------------------------------------------------------
       module read_irs_data
 
-      real(8),allocatable,dimension(:)  :: dateTime
-      real(8),allocatable,dimension(:)  :: dwellNumber
-      real(8),allocatable,dimension(:)  :: strokeDirection
-      real(8),allocatable,dimension(:)  :: latitude
-      real(8),allocatable,dimension(:)  :: longitude
-      real(8),allocatable,dimension(:)  :: sensorAzimuthAngle
-      real(8),allocatable,dimension(:)  :: sensorZenithAngle
-      real(8),allocatable,dimension(:)  :: solarAzimuthAngle
-      real(8),allocatable,dimension(:)  :: solarZenithAngle
-      real(8),allocatable,dimension(:)  :: cloudSignal
-      real(8),allocatable,dimension(:)  :: cloudCoverTotal
-      real(8),allocatable,dimension(:,:):: mwGlobalPcScores
-      real(8),allocatable,dimension(:)  :: mwGlobalPcrScores
-      real(8),allocatable,dimension(:)  :: mwGlobalPcrsQuality
-      real(8),allocatable,dimension(:)  :: mwSpatialSampleQuality
-      real(8),allocatable,dimension(:)  :: mwResidualEnergy
-      real(8),allocatable,dimension(:,:):: lwGlobalPcScores
-      real(8),allocatable,dimension(:)  :: lwGlobalPcrScores
-      real(8),allocatable,dimension(:)  :: lwGlobalPcrsQuality
-      real(8),allocatable,dimension(:)  :: lwSpatialSampleQuality
-      real(8),allocatable,dimension(:)  :: lwResidualEnergy
-      real(8),allocatable,dimension(:,:):: sensorChannelNumber
-      real(8),allocatable,dimension(:,:):: sensorChannelradiance 
+      integer(8),allocatable,dimension(:)  :: dateTime
+      integer(4),allocatable,dimension(:)  :: dwellNumber
+      integer(4),allocatable,dimension(:)  :: sensorChannelNumber
+      integer(4),allocatable,dimension(:)  :: spatialSampleQualityLw
+      integer(4),allocatable,dimension(:)  :: spatialSampleQualityMw
+
+      real(4),allocatable,dimension(:)  :: latitude
+      real(4),allocatable,dimension(:)  :: longitude
+      real(4),allocatable,dimension(:)  :: sensorAzimuthAngle
+      real(4),allocatable,dimension(:)  :: sensorZenithAngle
+      real(4),allocatable,dimension(:)  :: solarAzimuthAngle
+      real(4),allocatable,dimension(:)  :: solarZenithAngle
+      real(4),allocatable,dimension(:)  :: cloudSignal
+      real(4),allocatable,dimension(:)  :: cloudFraction   
+      real(4),allocatable,dimension(:)  :: sensorCentralWavenumber
+      real(4),allocatable,dimension(:,:):: spectralRadiance       
 
       character(255) gfname
 
@@ -52,14 +45,13 @@
 
       call check(nf_open(trim(gfname),0,ncid) )
       call getdim(ncid,"Location",nobs)
-      call getdim(ncid,"channel",channels)
+      call getdim(ncid,"Channel",channels)
       print*,"nobs=",nobs
 
 ! allocate the data arrays
 
       allocate(dateTime(nobs))
       allocate(dwellNumber(nobs))
-      allocate(strokeDirection(nobs))
       allocate(latitude(nobs))
       allocate(longitude(nobs))
       allocate(sensorAzimuthAngle(nobs))
@@ -67,13 +59,12 @@
       allocate(solarAzimuthAngle(nobs))
       allocate(solarZenithAngle(nobs))
       allocate(cloudSignal(nobs))
-      allocate(cloudCoverTotal(nobs))
-      allocate(mwSpatialSampleQuality(nobs))
-      allocate(mwResidualEnergy(nobs))
-      allocate(lwSpatialSampleQuality(nobs))
-      allocate(lwResidualEnergy(nobs))
-      allocate(sensorChannelNumber(channels,nobs))
-      allocate(sensorChannelradiance(channels,nobs))
+      allocate(cloudFraction(nobs))
+      allocate(spatialSampleQualityLw(nobs))
+      allocate(spatialSampleQualityMw(nobs))
+      allocate(sensorChannelNumber(channels))
+      allocate(sensorCentralWavenumber(channels))
+      allocate(spectralRadiance(channels,nobs))
 
 ! read the data
 
@@ -86,10 +77,6 @@
       var="dwellNumber"
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,dwellNumber) )
-
-      var="strokeDirection"
-      call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,strokeDirection) )
 
       var="latitude"
       call check( nf_inq_varid(grpid,var,varid) )
@@ -119,35 +106,37 @@
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,cloudSignal) )
 
-      var="cloudCoverTotal"
+      var="cloudFraction"
       call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,cloudCoverTotal) )
+      call check( nf_get_var(grpid,varid,cloudFraction) )
 
       var="sensorChannelNumber"
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,sensorChannelNumber) )
 
-      group = "ObsValues"; call check(NF_INQ_NCID(ncid, group, grpid))
-
-      var="mwSpatialSampleQuality"
+      var="spatialSampleQualityLw"
       call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,mwSpatialSampleQuality) )
-
-      var="mwResidualEnergy"
+      call check( nf_get_var(grpid,varid,spatialSampleQualityLw) )
+ 
+      var="spatialSampleQualityMw"
       call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,mwResidualEnergy) )
-
-      var="lwSpatialSampleQuality"
+      call check( nf_get_var(grpid,varid,spatialSampleQualityMw) )
+ 
+      var="sensorCentralWavenumber"
       call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,lwSpatialSampleQuality) )
+      call check( nf_get_var(grpid,varid,sensorCentralWavenumber) )
 
-      var="lwResidualEnergy"
-      call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,lwResidualEnergy) )
+      group = "ObsValue"; call check(NF_INQ_NCID(ncid, group, grpid))
 
-      var="radiance"
+      # read the spectral radiance in SI meters units
+      var="spectralRadiance"
       call check( nf_inq_varid(grpid,var,varid) )
-      call check( nf_get_var(grpid,varid,sensorChannelradiance) )
+      call check( nf_get_var(grpid,varid,spectralRadiance) )
+
+      # scale the radiance to CRTM units
+      do chan=1,channels
+      spectralRadiance(chan,:) = spectralRadiance(chan,:) * 1.e5   
+      enddo
 
       end subroutine 
 !---------------------------------------------------------------------------------------------------------
@@ -159,6 +148,7 @@
  integer, intent(in) :: status
 
  if(status /= NF90_NOERR) then
+    write (6,*) status
     write (6,*) NF90_STRERROR(status)
     call tracebackqq()
     call stop2(99)

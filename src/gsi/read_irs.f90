@@ -491,8 +491,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      !next = mod(n/nirs,mype_sub)
      !if(next /= mype_sub) cycle read_loop   
 
-     if(sensorZenithAngle(n)>60.00) badz=badz+1
-     if(sensorZenithAngle(n)>60.00) cycle 
+     if(sensorZenithAngle(n)>65.00) badz=badz+1
+     if(sensorZenithAngle(n)>65.00) cycle 
      !print*,sensorZenithAngle(n)
      !if(irec==100) call stop2(99)
      !cycle
@@ -617,13 +617,13 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 !    Coordinate bufr channels with satinfo file channels
 !    If this is the first time or a change in the bufr channels is detected, sync with satinfo file
 
-     if (ANY(int(sensorChannelNumber(:,n)) /= bufr_chan_test(:))) then
+     if (ANY(int(sensorChannelNumber(:)) /= bufr_chan_test(:))) then
         sfc_channel_index = 0
         bufr_index(:) = 0
         bufr_chans: do l=1,bufr_nchan
-           bufr_chan_test(l) = int(sensorChannelNumber(l,n))               ! Copy this bufr channel selection into array for comparison to next profile
+           bufr_chan_test(l) = int(sensorChannelNumber(l))               ! Copy this bufr channel selection into array for comparison to next profile
            satinfo_chans: do i=1,satinfo_nchan                             ! Loop through sensor (iasi) channels in the satinfo file
-           if ( channel_number(i) == int(sensorChannelNumber(l,n)) ) then  ! Channel found in both bufr and satinfo file
+           if ( channel_number(i) == int(sensorChannelNumber(l)) ) then  ! Channel found in both bufr and satinfo file
               bufr_index(i) = l
               if ( channel_number(i) == sfc_channel) sfc_channel_index = l
               exit satinfo_chans                                   ! go to next bufr channel
@@ -643,13 +643,13 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         sc_chan = sc_index(i)
         if ( bufr_index(i) == 0 ) cycle channel_loop ! check that channel number is within reason
         bufr_chan = bufr_index(i)
-        radiance = SensorchannelRadiance(bufr_chan,n)*1000.
+        radiance = spectralRadiance(bufr_chan,n) ! scaled in read_irs_ioda
         if (( radiance > zero .and. radiance < 99999._r_kind)) then  ! radiance bounds
            call crtm_planck_temperature(sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan))
         else
            temperature(bufr_chan) = tbmin
         endif
-        !print*, bufr_index(i),SensorchannelRadiance(bufr_chan,n),temperature(bufr_chan)
+        !print*, i,sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan)
      end do channel_loop
 
      ! Check for reasonable temperature values
