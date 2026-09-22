@@ -140,7 +140,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   integer(i_kind)  ,intent(in   ) :: mype,nrec_start,nrec_start_ears,nrec_start_db
   integer(i_kind)  ,intent(in   ) :: ithin
-  integer(i_kind)  ,intent(inout) :: isfcalc
+  integer(i_kind)  ,intent(in   ) :: isfcalc
   integer(i_kind)  ,intent(in   ) :: lunout
   integer(i_kind)  ,intent(in   ) :: mype_root
   integer(i_kind)  ,intent(in   ) :: mype_sub
@@ -170,18 +170,14 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! Variables for BUFR IO    
 
-  real(r_double) :: crchn_reps
-  real(r_double),dimension(5)  :: linele
-  real(r_double),dimension(13) :: allspot
+  real(r_double) :: cloud_frac
   real(r_double),allocatable,dimension(:,:) :: allchan
   real(r_double),dimension(3,10):: cscale 
-  real(r_double),dimension(7):: cloud_frac
   integer(i_kind) :: bufr_size
   
   real(r_kind)      :: step, start,step_adjust
   character(len=8)  :: subset
   character(len=4)  :: senname
-  character(len=80) :: allspotlist
   character(len=40) :: infile2
   integer(i_kind)   :: iret,ireadsb,ireadmg,irec,next, nrec_startx
   integer(i_kind),allocatable,dimension(:) :: nrec
@@ -193,7 +189,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   integer(i_kind)   :: idate5(5)
   real(r_kind)      :: sstime, tdiff, t4dv
   integer(i_kind)   :: nmind
-  integer(i_kind)   :: badz,badt,bad1,bad2,bad3
+  integer(i_kind)   :: badz,badt,bad1,bad2,bad3,skip,nuse,indx,irad,jsfcalc
 
 
   ! Other work variables
@@ -250,7 +246,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   ! Set standard parameters
 
   character(8),parameter:: fov_flag="crosstrk"
-  integer(i_kind),parameter:: sfc_channel=1271
+  integer(i_kind),parameter:: sfc_channel=377  ! 90720.55 m-1
   integer(i_kind),parameter:: ichan=-999  ! fov-based surface code is not channel specific for iasi 
   real(r_kind),parameter:: expansion=one         ! exansion factor for fov-based surface code.
                                                  ! use one for ir sensors.
@@ -329,6 +325,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   allocate(bufr_index(satinfo_nchan)) 
   ioff = ioff - 1 
 
+  print*,' irs satinfo_nchan=',satinfo_nchan 
+
   step_adjust = 0.625_r_kind
 
   ! If all channels of a given sensor are set to monitor or not
@@ -342,9 +340,6 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   senname = 'IRS'
   
-  allspotlist= &
-   'SAID YEAR MNTH DAYS HOUR MINU SECO CLATH CLONH SAZA BEARAZ SOZA SOLAZI'
-
   ! load spectral coefficient structure 
 
   quiet=.not. verbose
@@ -410,16 +405,17 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      spec_coef: do l=1,sc(1)%n_channels
         if ( channel_number(i) == sc(sensorindex_iasi)%sensor_channel(l) ) then
            sc_index(i) = l
+           !print*,i,channel_number(i),sc_index(i) 
            exit spec_coef
         endif
      end do spec_coef
   end do  satinfo_chan
 
   ! Calculate parameters needed for FOV-based surface calculation 
-  
-  isfcalc = 0
 
-  if (isfcalc==1)then
+  jsfcalc = 0
+  
+  if (jsfcalc==1)then
      instr=18
      call instrument_init(instr, jsatid, expansion, valid)
      if (.not. valid) then
@@ -428,13 +424,13 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
            call stop2(71)
         else
            call fov_cleanup
-           isfcalc = 0
+           jsfcalc = 0
            write(6,*)'READ_IRS:  ***ERROR*** IN SETUP OF FOV-SFC CODE'
         endif
      endif
   endif
 
-  if (isfcalc==1)then
+  if (jsfcalc==1)then
      rlndsea = zero
   else
      rlndsea(0) = zero                       
@@ -461,7 +457,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      gfname=trim(dfile(i))
      write(6,*)'READ_IRS: reading ioda file:',trim(gfname)
      call read_irs_ioda(nirs,channels)
-     write(6,*)'nirs=',nirs 
+     write(6,*)'nirs=',nirs,channels
      if(nirs==-1) call stop2(99)
      exit
   endif
@@ -478,7 +474,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! set index and chunking parameter
 
-  badz=0;badt=0;bad1=0;bad2=0;bad3=0
+  badz=0;badt=0;bad1=0;bad2=0;bad3=0;skip=0;nuse=0;indx=0;irad=0
 
   chunk = 1
   irec  = 0
@@ -491,6 +487,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      !next = mod(n/nirs,mype_sub)
      !if(next /= mype_sub) cycle read_loop   
 
+     !!!!!if(sensorAzimuthAngle(n)<0.00) sensorAzimuthAngle(n) = sensorAzimuthAngle(n)+360.00 
      if(sensorZenithAngle(n)>65.00) badz=badz+1
      if(sensorZenithAngle(n)>65.00) cycle 
      !print*,sensorZenithAngle(n)
@@ -503,7 +500,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      dlon_earth = longitude(n) ! longitude
      if( abs(dlat_earth) > R90  .or. abs(dlon_earth) > R360 .or. &
         (abs(dlat_earth) == R90 .and. dlon_earth /= ZERO) )then
-        !write(6,*)'READ_IRS:  ### ERROR IN READING ', senname, ' BUFR DATA:STRANGE OBS POINT (LAT,LON):', dlat_earth, dlon_earth
+        write(6,*)'READ_IRS:  ### ERROR IN READING STRANGE OBS POINT (LAT,LON):', dlat_earth, dlon_earth
         cycle read_loop
      endif
 
@@ -546,8 +543,10 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      ! Check obs time against analysis time
 
      tdiff = (dateTime(n)-iatime)/r3600  
+     t4dv  = (tdiff+3.0)
 
      if (l4dvar.or.l4densvar) then
+        if (t4dv<zero .OR. t4dv>winlen) badt=badt+1        
         if (t4dv<zero .OR. t4dv>winlen) cycle read_loop
      else
         if (abs(tdiff)>twind) badt=badt+1
@@ -567,7 +566,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      sat_zenang  = sensorZenithAngle(n) 
      if(sat_zenang > 90._r_kind ) then
-        write(6,*)'READ_IRS:  ### ERROR IN READING ', senname, ' BUFR DATA: STRANGE OBS INFO(FOVN,SLNM,SAZA,BEARAZ):', ifov, iscn, allspot(10),allspot(11)
+        write(6,*)'READ_IRS:  ### ERROR IN READING sat_zenang=',sat_zenang 
         cycle read_loop
      endif
 
@@ -581,10 +580,10 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      !    4 - mixed 
      !    When using FOV-based surface code, must screen out obs with bad fov numbers.
 
-     if (isfcalc == 1) then
+     if (jsfcalc == 1) then
         call fov_check(ifov,instr,ichan,valid)
         if (.not. valid) cycle read_loop
-        call deter_sfc_fov(fov_flag,ifov,instr,ichan,real(allspot(11),r_kind),dlat_earth_deg, &
+        call deter_sfc_fov(fov_flag,ifov,instr,ichan,real(sensorAzimuthAngle(n),r_kind),dlat_earth_deg, &
                            dlon_earth_deg,expansion,t4dv,isflg,idomsfc(1), &
                            sfcpct,vfr,sty,vty,stp,sm,ff10,sfcr,zz,sn,ts,tsavg)
      else
@@ -603,9 +602,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      pred = r100
      cloud_info = .false.
-     cloud_frac = 1000.
-     if (iret == 7 .and. cloud_frac(1) <= r100 .and. cloud_frac(1) >= zero) then
-        pred = r100 - cloud_frac(1)
+     cloud_frac = cloudFraction(n)*r100
+     if (cloud_frac <= r100 .and. cloud_frac >= zero) then
+        pred = cloud_frac 
         cloud_info = .true.
      endif
      crit1 = crit1 + pred
@@ -617,25 +616,28 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 !    Coordinate bufr channels with satinfo file channels
 !    If this is the first time or a change in the bufr channels is detected, sync with satinfo file
 
-     if (ANY(int(sensorChannelNumber(:)) /= bufr_chan_test(:))) then
+     if (ANY(sensorChannelNumber(:) /= bufr_chan_test(:))) then
         sfc_channel_index = 0
         bufr_index(:) = 0
         bufr_chans: do l=1,bufr_nchan
-           bufr_chan_test(l) = int(sensorChannelNumber(l))               ! Copy this bufr channel selection into array for comparison to next profile
+           bufr_chan_test(l) = sensorChannelNumber(l)               ! Copy this bufr channel selection into array for comparison to next profile
            satinfo_chans: do i=1,satinfo_nchan                             ! Loop through sensor (iasi) channels in the satinfo file
-           if ( channel_number(i) == int(sensorChannelNumber(l)) ) then  ! Channel found in both bufr and satinfo file
+           if ( channel_number(i) == sensorChannelNumber(l) ) then  ! Channel found in both bufr and satinfo file
               bufr_index(i) = l
               if ( channel_number(i) == sfc_channel) sfc_channel_index = l
               exit satinfo_chans                                   ! go to next bufr channel
            endif
            end do  satinfo_chans
+        !print*,l,sensorChannelNumber(l),bufr_chan_test(l),bufr_index(l)
         end do bufr_chans
      endif
 
-!    if (sfc_channel_index == 0) then
-!       write(6,*)'READ_IRS: ***ERROR*** SURFACE CHANNEL USED FOR QC WAS NOT FOUND'
-!       cycle read_loop
-!    endif
+     !print*,'sfc_channel_index',sfc_channel_index
+
+     if (sfc_channel_index == 0) then
+        write(6,*)'READ_IRS: ***ERROR*** SURFACE CHANNEL USED FOR QC WAS NOT FOUND'
+        call stop2(99)   
+     endif
 
      !!!!!$omp parallel do schedule(dynamic,1) private(i,sc_chan,bufr_chan,radiance) 
 
@@ -648,6 +650,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
            call crtm_planck_temperature(sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan))
         else
            temperature(bufr_chan) = tbmin
+           irad=irad+1
         endif
         !print*, i,sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan)
      end do channel_loop
@@ -667,6 +670,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      if(iskip > 0)then
         if(print_verbose)write(6,*) ' READ_IRS : iskip > 0 ',iskip
+        skip = skip+1
         cycle read_loop 
      end if
 
@@ -687,44 +691,45 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         call finalcheck(one,crit1,itx,iuse)
      endif
 
-     !if(.not. iuse)cycle read_loop
+     if(.not. iuse)nuse=nuse+1     
+     if(.not. iuse)cycle read_loop
      !print*,'readirs',pred,dist1,crit1,itx,iuse
      !call stop2(99)
 
      ! Store the data in the big beautiful array
 
-     rsat=allspot(1) 
-     data_all(1,itx)  = rsat                          ! satellite ID 
-     data_all(2,itx)  = tdiff                         ! time diff (obs-anal) (hrs)
-     data_all(3,itx)  = dlon                          ! grid relative longitude
-     data_all(4,itx)  = dlat                          ! grid relative latitude
-     data_all(5,itx)  = sensorZenithAngle(n)*deg2rad  ! satellite zenith angle (rad)
-     data_all(6,itx)  = sensorAzimuthAngle(n)         ! satellite azimuth angle (deg)
-     data_all(7,itx)  = 00000                         ! look angle (rad)
-     data_all(8,itx)  = 00000                         ! fov number
-     data_all(9,itx)  = solarZenithAngle(n)           ! solar zenith angle (deg)
-     data_all(10,itx) = solarAzimuthAngle(n)          ! solar azimuth angle (deg)
-     data_all(11,itx) = sfcpct(0)                    ! sea percentage of
-     data_all(12,itx) = sfcpct(1)                    ! land percentage
-     data_all(13,itx) = sfcpct(2)                    ! sea ice percentage
-     data_all(14,itx) = sfcpct(3)                    ! snow percentage
-     data_all(15,itx) = ts(0)                         ! ocean skin temperature
-     data_all(16,itx) = ts(1)                         ! land skin temperature
-     data_all(17,itx) = ts(2)                         ! ice skin temperature
-     data_all(18,itx) = ts(3)                         ! snow skin temperature
-     data_all(19,itx) = tsavg                         ! average skin temperature
-     data_all(20,itx) = vty                           ! vegetation type
-     data_all(21,itx) = vfr                           ! vegetation fraction
-     data_all(22,itx) = sty                           ! soil type
-     data_all(23,itx) = stp                           ! soil temperature
-     data_all(24,itx) = sm                            ! soil moisture
-     data_all(25,itx) = sn                            ! snow depth
-     data_all(26,itx) = zz                            ! surface height
-     data_all(27,itx) = idomsfc(1) + 0.001_r_kind     ! dominate surface type
-     data_all(28,itx) = sfcr                          ! surface roughness
-     data_all(29,itx) = ff10                          ! ten meter wind factor
-     data_all(30,itx) = dlon_earth_deg                ! earth relative longitude (degrees)
-     data_all(31,itx) = dlat_earth_deg                ! earth relative latitude (degrees)
+     rsat = satelliteIdentifier(n)
+     data_all(1,itx)  = rsat                                       ! satellite ID 
+     data_all(2,itx)  = t4dv                                       ! time diff (obs-anal) (hrs)
+     data_all(3,itx)  = dlon                                       ! grid relative longitude
+     data_all(4,itx)  = dlat                                       ! grid relative latitude
+     data_all(5,itx)  = sensorZenithAngle(n)*deg2rad               ! satellite zenith angle (rad)
+     data_all(6,itx)  = sensorAzimuthAngle(n)                      ! satellite azimuth angle (deg)
+     data_all(7,itx)  = sensorZenithAngle(n)*deg2rad               ! look angle (rad)
+     data_all(8,itx)  = nint(sensorAzimuthAngle(n))+1.001_r_kind   ! fov number
+     data_all(9,itx)  = solarZenithAngle(n)                        ! solar zenith angle (deg)
+     data_all(10,itx) = solarAzimuthAngle(n)                       ! solar azimuth angle (deg)
+     data_all(11,itx) = sfcpct(0)                                  ! sea percentage of
+     data_all(12,itx) = sfcpct(1)                                  ! land percentage
+     data_all(13,itx) = sfcpct(2)                                  ! sea ice percentage
+     data_all(14,itx) = sfcpct(3)                                  ! snow percentage
+     data_all(15,itx) = ts(0)                                      ! ocean skin temperature
+     data_all(16,itx) = ts(1)                                      ! land skin temperature
+     data_all(17,itx) = ts(2)                                      ! ice skin temperature
+     data_all(18,itx) = ts(3)                                      ! snow skin temperature
+     data_all(19,itx) = tsavg                                      ! average skin temperature
+     data_all(20,itx) = vty                                        ! vegetation type
+     data_all(21,itx) = vfr                                        ! vegetation fraction
+     data_all(22,itx) = sty                                        ! soil type
+     data_all(23,itx) = stp                                        ! soil temperature
+     data_all(24,itx) = sm                                         ! soil moisture
+     data_all(25,itx) = sn                                         ! snow depth
+     data_all(26,itx) = zz                                         ! surface height
+     data_all(27,itx) = idomsfc(1) + 0.001_r_kind                  ! dominate surface type
+     data_all(28,itx) = sfcr                                       ! surface roughness
+     data_all(29,itx) = ff10                                       ! ten meter wind factor
+     data_all(30,itx) = dlon_earth_deg                             ! earth relative longitude (degrees)
+     data_all(31,itx) = dlat_earth_deg                             ! earth relative latitude (degrees)
 
      if(dval_use)then
         data_all(maxinfo+cads_info+1,itx)= val_iasi
@@ -743,9 +748,12 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         i = bufr_index(l)
         if(bufr_index(l) /= 0)then
            data_all(l+nreal,itx) = temperature(i)   ! brightness temerature
+           if(temperature(i)==tbmin) indx=indx+1
         else
            data_all(l+nreal,itx) = tbmin
+           indx=indx+1
         end if
+        !print*,l,bufr_index(l),data_all(l+nreal,itx)  
      end do
      nrec(itx)=irec
 
@@ -756,6 +764,12 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   write(6,*) 'bad3=',bad3
   write(6,*) 'badt=',badt
   write(6,*) 'badz=',badz
+  write(6,*) 'skip=',skip
+  write(6,*) 'irad=',skip
+  write(6,*) 'indx=',skip
+  write(6,*) 'nuse=',skip
+
+  !score_crit = 0.0
 
   ! Clean some things up
 
@@ -777,9 +791,6 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! Allow single task to check for bad obs, update superobs sum,  
   ! and write out data to scratch file for further processing.
-
-! print*,'readirs',mype_sub,ndata
-! call stop2(99)
 
   if (mype_sub==mype_root.and.ndata>0) then
 
@@ -814,10 +825,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   deallocate(data_all,nrec) ! Deallocate data arrays
   call destroygrids    ! Deallocate satthin arrays
-  if(isfcalc == 1) call fov_cleanup
+  if(jsfcalc == 1) call fov_cleanup
   if(diagnostic_reg .and. ntest > 0 .and. mype_sub==mype_root) write(6,*)'READ_IRS:mype,ntest,disterrmax=',mype,ntest,disterrmax
 
-  return
 end subroutine read_irs  
 
 ! function to compare ymdhms to sec from 1970

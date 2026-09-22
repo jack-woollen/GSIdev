@@ -7,6 +7,7 @@
       integer(4),allocatable,dimension(:)  :: sensorChannelNumber
       integer(4),allocatable,dimension(:)  :: spatialSampleQualityLw
       integer(4),allocatable,dimension(:)  :: spatialSampleQualityMw
+      integer(4),allocatable,dimension(:)  :: satelliteIdentifier    
 
       real(4),allocatable,dimension(:)  :: latitude
       real(4),allocatable,dimension(:)  :: longitude
@@ -60,6 +61,7 @@
       allocate(solarZenithAngle(nobs))
       allocate(cloudSignal(nobs))
       allocate(cloudFraction(nobs))
+      allocate(satelliteIdentifier(nobs))
       allocate(spatialSampleQualityLw(nobs))
       allocate(spatialSampleQualityMw(nobs))
       allocate(sensorChannelNumber(channels))
@@ -110,6 +112,10 @@
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,cloudFraction) )
 
+      var="satelliteIdentifier"
+      call check( nf_inq_varid(grpid,var,varid) )
+      call check( nf_get_var(grpid,varid,satelliteIdentifier) )
+
       var="sensorChannelNumber"
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,sensorChannelNumber) )
@@ -134,9 +140,7 @@
       call check( nf_get_var(grpid,varid,spectralRadiance) )
 
       # scale the radiance to CRTM units
-      do chan=1,channels
-      spectralRadiance(chan,:) = spectralRadiance(chan,:) * 1.e5   
-      enddo
+      spectralRadiance = spectralRadiance * 1.e5   
 
       end subroutine 
 !---------------------------------------------------------------------------------------------------------
