@@ -91,6 +91,7 @@
       var="sensorAzimuthAngle"
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,sensorAzimuthAngle) )
+      sensorAzimuthAngle = mod(sensorAzimuthAngle+360.,360.)
 
       var="sensorZenithAngle"
       call check( nf_inq_varid(grpid,var,varid) )
@@ -99,6 +100,7 @@
       var="solarAzimuthAngle"
       call check( nf_inq_varid(grpid,var,varid) )
       call check( nf_get_var(grpid,varid,solarAzimuthAngle) )
+      solarAzimuthAngle = mod(solarAzimuthAngle+360.,360.)
 
       var="solarZenithAngle"
       call check( nf_inq_varid(grpid,var,varid) )
