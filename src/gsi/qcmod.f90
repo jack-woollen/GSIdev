@@ -2182,7 +2182,7 @@ subroutine qc_saphir(nchanl,sfchgt,luse,sea, &
 end subroutine qc_saphir
 
 subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs,                         &
-     cris,iasi,iasing,hirs,zsges,cenlat,frac_sea,pangs,trop5,zasat,tzbgr,tsavg5,tbc,tb_obs,tbcnob,tnoise, &
+     cris,iasi,iasing,hirs,irs,zsges,cenlat,frac_sea,pangs,trop5,zasat,tzbgr,tsavg5,tbc,tb_obs,tbcnob,tnoise, &
      wavenumber,ptau5,prsltmp,tvp,temp,wmix,chan_level,emissivity_k,ts,tsim,                   &
      id_qc,aivals,errf,varinv,varinv_use,cld,cldp,kmax,zero_irjaco3_pole,cluster_fraction,    &
      cluster_bt, chan_stdev, model_bt)
@@ -2272,7 +2272,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
 
 ! Declare passed variables
 
-  logical,                            intent(in   ) :: sea,land,ice,snow,luse,goessndr,airs,cris,hirs,iasi,iasing
+  logical,                            intent(in   ) :: sea,land,ice,snow,luse,goessndr,airs,cris,hirs,iasi,iasing,irs
   logical,                            intent(inout) :: zero_irjaco3_pole
   integer(i_kind),                    intent(in   ) :: nsig,nchanl,ndat,is
   integer(i_kind),dimension(nchanl),  intent(in   ) :: ich
@@ -2595,7 +2595,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
     endif   
 
 ! Temporary additional check for CrIS to reduce influence of land points on window channels (particularly important for bias correction)
-    if (cris .and. .not. sea) then
+    if ((irs .or. cris) .and. .not. sea) then
        do i=1,nchanl
           if (ts(i) > 0.2_r_kind) then
            !             QC3 in statsrad

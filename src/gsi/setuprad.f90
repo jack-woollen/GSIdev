@@ -371,7 +371,7 @@ contains
   logical cao_flag                       
   logical hirs2,msu,goessndr,hirs3,hirs4,hirs,amsua,amsub,airs,hsb,goes_img,ahi,mhs,abi
   type(sparr2) :: dhx_dx
-  logical avhrr,avhrr_navy,viirs,lextra,ssu,iasi,iasing,cris,seviri,atms
+  logical avhrr,avhrr_navy,viirs,lextra,ssu,iasi,iasing,cris,seviri,atms,irs
   logical ssmi,ssmis,amsre,amsre_low,amsre_mid,amsre_hig,amsr2,gmi,saphir
   logical :: mws
   logical ssmis_las,ssmis_uas,ssmis_env,ssmis_img
@@ -528,6 +528,7 @@ contains
   ssmis_env  = obstype == 'ssmis_env'
   iasi       = obstype == 'iasi'
   iasing     = obstype == 'iasi-ng'
+  irs        = obstype == 'irs'
   cris       = obstype == 'cris' .or. obstype == 'cris-fsr'
   seviri     = obstype == 'seviri'
   atms       = obstype == 'atms'
@@ -1391,7 +1392,7 @@ contains
 !  ---------- IR -------------------
 !       QC HIRS/2, GOES, HIRS/3 and AIRS sounder data
 !
-        ObsQCs: if (hirs .or. goessndr .or. airs .or. iasi .or. iasing .or. cris) then
+        ObsQCs: if (hirs .or. goessndr .or. airs .or. iasi .or. iasing .or. cris .or. irs) then
 
            frac_sea=data_s(ifrac_sea,n)
 
@@ -1412,7 +1413,7 @@ contains
            end do
 
            call qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse(n),goessndr,airs,cris,iasi,      &
-              iasing,hirs,zsges,cenlat,frac_sea,pangs,trop5,zasat,tzbgr,tsavg5,tbc,tb_obs,tbcnob,tnoise, &
+              iasing,hirs,irs,zsges,cenlat,frac_sea,pangs,trop5,zasat,tzbgr,tsavg5,tbc,tb_obs,tbcnob,tnoise, &
               wavenumber,ptau5,prsltmp,tvp,temp,wmix,chan_level,emissivity_k,ts,tsim,         &
               id_qc,aivals,errf,varinv,varinv_use,cld,cldp,kmax,zero_irjaco3_pole(n),     &
               imager_cluster_fraction(:,n), imager_cluster_bt(:,:,n), imager_chan_stdev(:,n),imager_model_bt(:,n))

@@ -156,6 +156,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   real(r_kind)     ,intent(in   ) :: rmesh
   logical          ,intent(in   ) :: dval_use
 
+  integer(i_kind):: ithin0
+  real(r_kind)   :: rmesh0
+
   ! Output variables
 
   integer(i_kind)  ,intent(inout) :: nread
@@ -188,8 +191,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   integer(i_kind)   :: idate
   integer(i_kind)   :: idate5(5)
   real(r_kind)      :: sstime, tdiff, t4dv
-  integer(i_kind)   :: nmind
-  integer(i_kind)   :: badz,badt,bad1,bad2,bad3,skip,nuse,indx,irad,jsfcalc
+  integer(i_kind)   :: jsfcalc     
+  integer(i_kind)   :: badz,badt,bad1,bad2,bad3,skip,nuse,indx,irad,clod   
 
 
   ! Other work variables
@@ -213,7 +216,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   real(r_kind) cdist,disterr,disterrmax,dlon00,dlat00
 
   logical          :: outside,iuse,assim,valid
-  logical          :: iasi,quiet,cloud_info
+  logical          :: quiet,cloud_info,cloudy
 
   integer(i_kind)  :: iatime, unixtime, irstime
   integer(i_kind)  :: ifov, instr, iscn, ioff, sensorindex_iasi
@@ -278,7 +281,6 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ndata = 0
   nodata = 0
-  iasi=      obstype == 'iasi'
 
   bad_line=-1
 
@@ -440,15 +442,18 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      rlndsea(4) = 30._r_kind
   endif
 
-  ! Make thinning grids 
-
+  ! Need to remove time thining here somehow
   call radthin_time_info(obstype, jsatid, sis, ptime, ithin_time)
   if( ptime > 0.0_r_kind) then
      n_tbin=nint(2*time_window_max/ptime)
   else
      n_tbin=1
   endif
-  call makegrids(rmesh,ithin,n_tbin=n_tbin)
+
+  ! brute force remove all thinning
+  rmesh0=0
+  ithin0=0
+  call makegrids(rmesh0,ithin0,n_tbin=n_tbin)
 
   ! read the ioda netcdf data file
 
@@ -474,7 +479,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! set index and chunking parameter
 
-  badz=0;badt=0;bad1=0;bad2=0;bad3=0;skip=0;nuse=0;indx=0;irad=0
+  badz=0;badt=0;bad1=0;bad2=0;bad3=0;skip=0;nuse=0;indx=0;irad=0;clod=0
 
   chunk = 1
   irec  = 0
@@ -486,13 +491,6 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      irec = irec + 1
      !next = mod(n/nirs,mype_sub)
      !if(next /= mype_sub) cycle read_loop   
-
-     !!!!!if(sensorAzimuthAngle(n)<0.00) sensorAzimuthAngle(n) = sensorAzimuthAngle(n)+360.00 
-     if(sensorZenithAngle(n)>65.00) badz=badz+1
-     if(sensorZenithAngle(n)>65.00) cycle 
-     !print*,sensorZenithAngle(n)
-     !if(irec==100) call stop2(99)
-     !cycle
 
      ! Check observing position
 
@@ -565,8 +563,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      ! Observational info Check  satellite zenith angle (SAZA)
 
      sat_zenang  = sensorZenithAngle(n) 
-     if(sat_zenang > 90._r_kind ) then
-        write(6,*)'READ_IRS:  ### ERROR IN READING sat_zenang=',sat_zenang 
+     if(sat_zenang > 65._r_kind .or. sat_zenang < 0._r_kind) then
+        badz = badz+1
         cycle read_loop
      endif
 
@@ -670,7 +668,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      if(iskip > 0)then
         if(print_verbose)write(6,*) ' READ_IRS : iskip > 0 ',iskip
-        skip = skip+1
+        skip = skip+1          
         cycle read_loop 
      end if
 
@@ -693,8 +691,26 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      if(.not. iuse)nuse=nuse+1     
      if(.not. iuse)cycle read_loop
-     !print*,'readirs',pred,dist1,crit1,itx,iuse
-     !call stop2(99)
+
+     ! interpolate NSST variables to Obs. location and get dtw, dtc, tz_tr
+
+     if ( nst_gsi > 0 ) then
+        tref  = ts(0)
+        dtw   = zero
+        dtc   = zero
+        tz_tr = one
+        if ( sfcpct(0) > zero ) then
+           call gsi_nstcoupler_deter(dlat_earth,dlon_earth,t4dv,zob,tref,dtw,dtc,tz_tr)
+        endif
+     endif
+
+     ! remove cloudy data using IRS indicators
+
+     cloudy = cloudFraction(n)>0.15 .and. abs(cloudSignal(n))>2.0
+     if(cloudy) then
+        clod=clod+1
+        cycle read_loop
+     endif
 
      ! Store the data in the big beautiful array
 
@@ -765,9 +781,10 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   write(6,*) 'badt=',badt
   write(6,*) 'badz=',badz
   write(6,*) 'skip=',skip
-  write(6,*) 'irad=',skip
-  write(6,*) 'indx=',skip
-  write(6,*) 'nuse=',skip
+  write(6,*) 'irad=',irad
+  write(6,*) 'indx=',indx
+  write(6,*) 'nuse=',nuse
+  write(6,*) 'clod=',clod
 
   !score_crit = 0.0
 
