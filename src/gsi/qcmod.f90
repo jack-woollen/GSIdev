@@ -207,7 +207,7 @@ module qcmod
   public :: troflg
   public :: lat_c
   public :: nrand 
-  public :: airs_cads, cris_cads, iasi_cads, iasing_cads
+  public :: airs_cads, cris_cads, iasi_cads, irs_cads, iasing_cads
   public :: sfcwndob_biasc
 
   logical nlnqc_iter,njqc,vqc,nvqc,hub_norm
@@ -224,7 +224,7 @@ module qcmod
   logical vadwnd_l2rw_qc
   logical troflg
   logical cao_check
-  logical airs_cads, cris_cads, iasi_cads, iasing_cads
+  logical airs_cads, cris_cads, iasi_cads, irs_cads, iasing_cads
   logical sfcwndob_biasc
 
   character(10):: vadfile
@@ -478,6 +478,7 @@ contains
     airs_cads   = .false.
     cris_cads   = .false.
     iasi_cads   = .false.
+    irs_cads    = .false.
     iasing_cads = .false.
 
     return
@@ -2464,6 +2465,21 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
              tropopause_height, boundary_layer_pres, tb_bc, tsim, chan_level, imager_chans, cluster_fraction, &
              cluster_bt, chan_stdev, model_bt, i_flag_cloud, cldp )
 
+  elseif ( irs .and. irs_cads ) then
+      I_Sensor_ID = 57
+      chan_array = nuchan(ich)                  ! channel numbers
+      tb_bc = tbc + tsim                        ! observation BT with bias correction
+      boundary_layer_pres = nint(0.8_r_kind*prsltmp(1))  !  boundary layer set to be 80% of surface pressure
+      tropopause_height = nint(trop5)
+      isurface_chan = 439                       ! surface channel
+      imager_chans = (/0,0/)                    ! imager channel numbers (from satinfo)
+      ichan_10_micron = 439                     ! ~10.7 micron channel for low level cloud test
+      ichan_12_micron = 245                     ! ~12.0 micron channel for low level cloud test
+
+      call cloud_aerosol_detection( I_Sensor_ID, nchanl, chan_array, &
+             tropopause_height, boundary_layer_pres, tb_bc, tsim, chan_level, imager_chans, cluster_fraction, &
+             cluster_bt, chan_stdev, model_bt, i_flag_cloud, cldp )
+
   else
      call emc_legacy_cloud_detect(nchanl,nsig,tsavg5,trop5,prsltmp,tvp,ts,tbc,temp,varinv_use,lcloud,cld,cldp)
 
@@ -2472,7 +2488,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
 ! compute cloud stats 
 ! If using CADS
   if ((cris .and. cris_cads) .or. (iasi .and. iasi_cads) .or. (airs .and. airs_cads) .or. &
-       iasing .and. iasing_cads ) then
+       (irs .and. irs_cads) .or. (iasing .and. iasing_cads) ) then
 
 !   Reject channels affected by clouds
     do i=1, nchanl
@@ -2537,7 +2553,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
       end do
     endif
 
-! default compute cloud stats, emc_legacy_cloud_detect 
+! default compute cloud stats, emc_legacy_cloud_detect nocads
   else  
     if ( lcloud > 0 ) then
       do i=1,nchanl

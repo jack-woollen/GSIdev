@@ -1,10 +1,10 @@
-subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
+subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
      infile,lunout,obstype,nread,ndata,nodata,twind,sis,&
      mype_root,mype_sub,npe_sub,mpi_comm_sub,nobs, &
      nrec_start,nrec_start_ears,nrec_start_db,dval_use)
 !$$$  subprogram documentation block
 !                .      .    .                                       .
-! subprogram:    read_irs                  read bufr format iasi data
+! subprogram:    read_irs                  read bufr format irs data
 ! prgmmr :   tahara          org: np20                date: 2002-12-03
 !
 ! abstract:  This routine reads BUFR format radiance 
@@ -71,7 +71,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 !
 !   input argument list:
 !     mype     - mpi task id
-!     val_iasi - weighting factor applied to super obs
+!     val_irs - weighting factor applied to super obs
 !     ithin    - flag to thin data
 !     isfcalc  - when set to one, calculate surface characteristics using
 !                method that accounts for the size/shape of the fov. 
@@ -94,9 +94,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 !     nrec_start_db - first db subset with useful information
 !
 !   output argument list:
-!     nread    - number of BUFR IASI observations read
-!     ndata    - number of BUFR IASI profiles retained for further processing
-!     nodata   - number of BUFR IASI observations retained for further processing
+!     nread    - number of BUFR irs observations read
+!     ndata    - number of BUFR irs profiles retained for further processing
+!     nodata   - number of BUFR irs observations retained for further processing
 !     nobs     - array of observations on each subdomain for each processor
 !
 ! attributes:
@@ -128,13 +128,13 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   use gsi_nstcouplermod, only: gsi_nstcoupler_skindepth, gsi_nstcoupler_deter
   use mpimod, only: npe
   use gsi_io, only: verbose
-  use qcmod,  only: iasi_cads
+  use qcmod,  only: irs_cads
   use read_irs_data
   !use radiance_mod, only: rad_obs_type
 
   implicit none
 
-  ! BUFR format for IASISPOT 
+  ! BUFR format for irsSPOT 
 
   ! Input variables
 
@@ -151,7 +151,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   character(len=*) ,intent(in   ) :: obstype
   character(len=20),intent(in   ) :: sis
   real(r_kind)     ,intent(in   ) :: twind
-  real(r_kind)     ,intent(inout) :: val_iasi
+  real(r_kind)     ,intent(inout) :: val_irs
   real(r_kind)     ,intent(in   ) :: gstime
   real(r_kind)     ,intent(in   ) :: rmesh
   logical          ,intent(in   ) :: dval_use
@@ -219,7 +219,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   logical          :: quiet,cloud_info,cloudy
 
   integer(i_kind)  :: iatime, unixtime, irstime
-  integer(i_kind)  :: ifov, instr, iscn, ioff, sensorindex_iasi
+  integer(i_kind)  :: ifov, instr, iscn, ioff, sensorindex_irs
   integer(i_kind)  :: i, j, l, iskip, ifovn, bad_line, ksatid, kidsat, llll
   integer(i_kind)  :: nreal, isflg
   integer(i_kind)  :: itx, k, nele, itt, n
@@ -250,7 +250,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   character(8),parameter:: fov_flag="crosstrk"
   integer(i_kind),parameter:: sfc_channel=377  ! 90720.55 m-1
-  integer(i_kind),parameter:: ichan=-999  ! fov-based surface code is not channel specific for iasi 
+  integer(i_kind),parameter:: ichan=-999  ! fov-based surface code is not channel specific for irs 
   real(r_kind),parameter:: expansion=one         ! exansion factor for fov-based surface code.
                                                  ! use one for ir sensors.
   real(r_kind),parameter:: R90    =  90._r_kind
@@ -264,6 +264,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   integer(i_kind) :: ithin_time,n_tbin,it_mesh,jstart
   logical print_verbose
 
+  character(255) file_name
+  logical        is_opened
+
   print_verbose=.false.
   if(verbose)print_verbose=.true.
 
@@ -275,7 +278,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   dval_info = 0
   if(dval_use) dval_info = 2
   cads_info = 0
-  if(iasi_cads) cads_info = 23
+  if(irs_cads) cads_info = 23
   nreal  = maxinfo + cads_info + dval_info + nstinfo
   iatime = unixtime(iadate(1),iadate(2),iadate(3),iadate(4),iadate(4),0)
 
@@ -298,7 +301,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   radedge_min = 0
   radedge_max = 1000
 
-  ! Find the iasi offset in the jpch_rad list.  This is for the iuse flag ----------------------------------------------------------------
+  ! Find the irs offset in the jpch_rad list.  This is for the iuse flag ----------------------------------------------------------------
   ! and count the number of cahnnels in the satinfo file 
 
   ioff=jpch_rad
@@ -307,7 +310,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   assim = .false.
   do i=1,jpch_rad
      if (trim(nusis(i))==trim(sis)) then
-        ioff = min(ioff,i)   ! iasi offset
+        ioff = min(ioff,i)   ! irs offset
         if (subset_start == 0) then
           step  = radstep(i)
           start = radstart(i)
@@ -317,7 +320,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
           end if
           subset_start = i
         endif
-        if (iuse_rad(i) > 0) assim = .true.  ! Are any of the IASI channels being used?
+        if (iuse_rad(i) > 0) assim = .true.  ! Are any of the irs channels being used?
         subset_end = i 
      endif
   end do 
@@ -336,9 +339,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   ! We do not want such observations affecting the relative
   ! weighting between observations within a given thinning group.
 
-  if (.not.assim) val_iasi=zero
+  if (.not.assim) val_irs=zero
 
-  if (mype_sub==mype_root)write(6,*)'READ_IRS:  iasi offset ',ioff
+  if (mype_sub==mype_root)write(6,*)'READ_IRS:  irs offset ',ioff
 
   senname = 'IRS'
   
@@ -373,9 +376,9 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   !  find IRS sensorindex
 
-  sensorindex_iasi = 0
+  sensorindex_irs = 0
   if ( sc(1)%sensor_id(1:3) == 'irs' ) then
-     sensorindex_iasi = 1
+     sensorindex_irs = 1
   else
      write(6,*)'READ_IRS: ***ERROR*** sensorindex_IRS not set  NO IRS DATA USED'
      write(6,*)'READ_IRS: We are looking for ', sc(1)%sensor_id, '   TERMINATE PROGRAM EXECUTION'
@@ -384,12 +387,12 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! find imager sensorindex
   ! sensorindex_imager = 0
-  ! if ( iasi_cads .and. imager_coeff ) then
+  ! if ( irs_cads .and. imager_coeff ) then
   !    if ( sc(2)%sensor_id(1:4) == 'avhr' ) then
   !       sensorindex_imager = 2
   !       imager_coeff = .true.
   !    else
-  !       write(6,*)'READ_IRS: ***ERROR*** sensorindex_imager is not set  NO IASI DATA USED'
+  !       write(6,*)'READ_IRS: ***ERROR*** sensorindex_imager is not set  NO irs DATA USED'
   !       write(6,*)'READ_IRS: We are looking for ', sc(2)%sensor_id
   !       imager_coeff = .false.
   !    end if
@@ -405,7 +408,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
   sc_index(:) = 0
   satinfo_chan: do i=1,satinfo_nchan
      spec_coef: do l=1,sc(1)%n_channels
-        if ( channel_number(i) == sc(sensorindex_iasi)%sensor_channel(l) ) then
+        if ( channel_number(i) == sc(sensorindex_irs)%sensor_channel(l) ) then
            sc_index(i) = l
            !print*,i,channel_number(i),sc_index(i) 
            exit spec_coef
@@ -444,16 +447,16 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
   ! Need to remove time thining here somehow
   call radthin_time_info(obstype, jsatid, sis, ptime, ithin_time)
+
+  ptime=.5; ithin_time=2 ! this for half hour data
+  
   if( ptime > 0.0_r_kind) then
      n_tbin=nint(2*time_window_max/ptime)
   else
      n_tbin=1
   endif
 
-  ! brute force remove all thinning
-  rmesh0=0
-  ithin0=0
-  call makegrids(rmesh0,ithin0,n_tbin=n_tbin)
+  call makegrids(rmesh,ithin,n_tbin=n_tbin)
 
   ! read the ioda netcdf data file
 
@@ -502,6 +505,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         cycle read_loop
      endif
 
+     !print*,'top',n,dlat_earth,dlon_earth
+
      ! Retrieve observing position
 
      if(dlon_earth >= R360)then
@@ -514,6 +519,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      dlon_earth_deg = dlon_earth
      dlat_earth = dlat_earth * deg2rad
      dlon_earth = dlon_earth * deg2rad
+
+     !print*,'d2r',n,dlat_earth,dlon_earth
 
      ! If regional, map obs lat,lon to rotated grid.
      ! Convert to rotated coordinate.  dlon centered on 180 (pi),
@@ -530,13 +537,16 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
            disterr=acos(cdist)*rad2deg
            disterrmax=max(disterrmax,disterr)
         end if
+        !print*,'reg',n,dlat,dlon
         if(outside) cycle read_loop
      else  ! Global case
         dlat = dlat_earth
         dlon = dlon_earth
         call grdcrd1(dlat,rlats,nlat,1)
         call grdcrd1(dlon,rlons,nlon,1)
+        !print*,'glb',n,dlat,dlon
      endif
+
 
      ! Check obs time against analysis time
 
@@ -587,6 +597,15 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      else
         call deter_sfc(dlat,dlon,dlat_earth,dlon_earth,t4dv,isflg,idomsfc(1),sfcpct, &
                           ts,tsavg,vty,vfr,sty,stp,sm,sn,zz,ff10,sfcr)
+        if(abs(sum(sfcpct)-1.0)>1.0e-6) then
+           print*,'jsw',n,dlat,dlon
+           print*,'jsw',n,t4dv,isflg
+           print*,'pct',n,sfcpct(0:1)
+           print*,'pct',n,sfcpct(2:3)
+           print*,'pct',n,sum(sfcpct)
+           print*
+           call stop2(99)
+        endif
      endif
 
      ! Set common predictor parameters
@@ -619,7 +638,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         bufr_index(:) = 0
         bufr_chans: do l=1,bufr_nchan
            bufr_chan_test(l) = sensorChannelNumber(l)               ! Copy this bufr channel selection into array for comparison to next profile
-           satinfo_chans: do i=1,satinfo_nchan                             ! Loop through sensor (iasi) channels in the satinfo file
+           satinfo_chans: do i=1,satinfo_nchan                             ! Loop through sensor (irs) channels in the satinfo file
            if ( channel_number(i) == sensorChannelNumber(l) ) then  ! Channel found in both bufr and satinfo file
               bufr_index(i) = l
               if ( channel_number(i) == sfc_channel) sfc_channel_index = l
@@ -645,12 +664,12 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
         bufr_chan = bufr_index(i)
         radiance = spectralRadiance(bufr_chan,n) ! scaled in read_irs_ioda
         if (( radiance > zero .and. radiance < 99999._r_kind)) then  ! radiance bounds
-           call crtm_planck_temperature(sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan))
+           call crtm_planck_temperature(sensorindex_irs,sc_chan,radiance,temperature(bufr_chan))
         else
            temperature(bufr_chan) = tbmin
            irad=irad+1
         endif
-        !print*, i,sensorindex_iasi,sc_chan,radiance,temperature(bufr_chan)
+        !print*, i,sensorindex_irs,sc_chan,radiance,temperature(bufr_chan)
      end do channel_loop
 
      ! Check for reasonable temperature values
@@ -706,11 +725,11 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      ! remove cloudy data using IRS indicators
 
-     cloudy = cloudFraction(n)>0.15 .and. abs(cloudSignal(n))>2.0
-     if(cloudy) then
-        clod=clod+1
-        cycle read_loop
-     endif
+!    cloudy = cloudFraction(n)>0.15 .and. abs(cloudSignal(n))>2.0
+!    if(cloudy) then
+!       clod=clod+1
+!       cycle read_loop
+!    endif
 
      ! Store the data in the big beautiful array
 
@@ -747,8 +766,10 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      data_all(30,itx) = dlon_earth_deg                             ! earth relative longitude (degrees)
      data_all(31,itx) = dlat_earth_deg                             ! earth relative latitude (degrees)
 
+      if(cads_info>0) data_all(maxinfo+1:maxinfo+cads_info,itx) = zero
+
      if(dval_use)then
-        data_all(maxinfo+cads_info+1,itx)= val_iasi
+        data_all(maxinfo+cads_info+1,itx)= val_irs
         data_all(maxinfo+cads_info+2,itx)= itt
      end if
 
@@ -824,7 +845,7 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      if(dval_use .and. assim)then
         do n=1,ndata
           itt=nint(data_all(33,n))
-          super_val(itt)=super_val(itt)+val_iasi
+          super_val(itt)=super_val(itt)+val_irs
         end do
      end if
 
@@ -834,6 +855,8 @@ subroutine read_irs(mype,val_iasi,ithin,isfcalc,rmesh,jsatid,gstime,&
      write(lunout) obstype,sis,nreal,satinfo_nchan,ilat,ilon
      write(lunout) ((data_all(k,n),k=1,nele),n=1,ndata)
 
+     inquire(unit=lunout, opened=is_opened, name=file_name)
+     write(6,*) 'read_irs ',trim(file_name),' is opened as ',lunout,is_opened
      write(6,*) 'READ_IRS: ndata,nodata=',ndata,nodata
   
   endif 

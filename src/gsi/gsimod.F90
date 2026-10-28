@@ -94,7 +94,7 @@
       init_qcvars,vadfile,noiqc,c_varqc,gps_jacqc,qc_noirjaco3,qc_noirjaco3_pole,&
       buddycheck_t,buddydiag_save,njqc,vqc,nvqc,hub_norm,vadwnd_l2rw_qc,sfcwndob_biasc,&
       pvis,pcldch,scale_cv,estvisoe,estcldchoe,vis_thres,cldch_thres,cao_check, &
-      cris_cads, iasi_cads, iasing_cads, airs_cads
+      cris_cads, iasi_cads, iasing_cads, airs_cads,irs_cads
   use qcmod, only: troflg,lat_c,nrand
   use cads, only: M__Sensor,N__Num_Bands,N__GradChkInterval,N__Band_Size,N__Bands,N__Window_Width, &
       N__Window_Bounds,R__BT_Threshold,R__Grad_Threshold,R__Window_Grad_Threshold, L__Do_Quick_Exit, &
@@ -1073,6 +1073,7 @@
 !     cris_cads  : use the cloud and aerosol detection software for CrIS instruments
 !     iasi_cads  : use the cloud and aerosol detection software for IASI instruments
 !     iasing_cads: use the cloud and aerosol detection software for IASI-NG instruments
+!     irs_cads   : use the cloud and aerosol detection software for IRS instruments
 !     
   
   namelist/obsqc/dfact,dfact1,erradar_inflate,tdrerr_inflate,oberrflg,&
@@ -1084,7 +1085,7 @@
        q_doe_a_136,q_doe_a_137,q_doe_b_136,q_doe_b_137, &
        t_doe_a_136,t_doe_a_137,t_doe_b_136,t_doe_b_137, &
        uv_doe_a_236,uv_doe_a_237,uv_doe_a_213,uv_doe_b_236,uv_doe_b_237,uv_doe_b_213, &
-       vad_near_analtime,airs_cads,cris_cads,iasi_cads, iasing_cads
+       vad_near_analtime,airs_cads,cris_cads,iasi_cads, iasing_cads,irs_cads
 
 ! OBS_INPUT (controls input data):
 !      dmesh(max(dthin))- thinning mesh for each group
