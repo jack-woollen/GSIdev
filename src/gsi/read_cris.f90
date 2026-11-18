@@ -1035,7 +1035,7 @@ subroutine read_cris(mype,val_cris,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      if(dval_use .and. assim)then
         do n=1,ndata
-           itt=nint(data_all(33,n))
+           itt=nint(data_all(maxinfo+cads_info+2,n))
            super_val(itt)=super_val(itt)+val_cris
         end do
      end if

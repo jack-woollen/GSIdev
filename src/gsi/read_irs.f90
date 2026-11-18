@@ -249,7 +249,7 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
   ! Set standard parameters
 
   character(8),parameter:: fov_flag="crosstrk"
-  integer(i_kind),parameter:: sfc_channel=377  ! 90720.55 m-1
+  integer(i_kind),parameter:: sfc_channel=439  ! same as qcmod 
   integer(i_kind),parameter:: ichan=-999  ! fov-based surface code is not channel specific for irs 
   real(r_kind),parameter:: expansion=one         ! exansion factor for fov-based surface code.
                                                  ! use one for ir sensors.
@@ -280,7 +280,7 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
   cads_info = 0
   if(irs_cads) cads_info = 23
   nreal  = maxinfo + cads_info + dval_info + nstinfo
-  iatime = unixtime(iadate(1),iadate(2),iadate(3),iadate(4),iadate(4),0)
+  iatime = unixtime(iadate(1),iadate(2),iadate(3),iadate(4),iadate(5),0)
 
   ndata = 0
   nodata = 0
@@ -597,14 +597,6 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
      else
         call deter_sfc(dlat,dlon,dlat_earth,dlon_earth,t4dv,isflg,idomsfc(1),sfcpct, &
                           ts,tsavg,vty,vfr,sty,stp,sm,sn,zz,ff10,sfcr)
-        if(abs(sum(sfcpct)-1.0)>1.0e-6) then
-           print*,'jsw',n,dlat,dlon
-           print*,'jsw',n,t4dv,isflg
-           print*,'pct',n,sfcpct(0:1)
-           print*,'pct',n,sfcpct(2:3)
-           print*,'pct',n,sum(sfcpct)
-           print*
-           call stop2(99)
         endif
      endif
 
@@ -741,7 +733,7 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
      data_all(5,itx)  = sensorZenithAngle(n)*deg2rad               ! satellite zenith angle (rad)
      data_all(6,itx)  = sensorAzimuthAngle(n)                      ! satellite azimuth angle (deg)
      data_all(7,itx)  = sensorZenithAngle(n)*deg2rad               ! look angle (rad)
-     data_all(8,itx)  = nint(sensorAzimuthAngle(n))+1.001_r_kind   ! fov number
+     data_all(8,itx)  = nint(sat_zenang)+1.001_r_kind              ! fov number (from zenith angle, as in read_abi)
      data_all(9,itx)  = solarZenithAngle(n)                        ! solar zenith angle (deg)
      data_all(10,itx) = solarAzimuthAngle(n)                       ! solar azimuth angle (deg)
      data_all(11,itx) = sfcpct(0)                                  ! sea percentage of
@@ -844,7 +836,7 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
 
      if(dval_use .and. assim)then
         do n=1,ndata
-          itt=nint(data_all(33,n))
+          itt=nint(data_all(maxinfo+cads_info+2,n))
           super_val(itt)=super_val(itt)+val_irs
         end do
      end if

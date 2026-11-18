@@ -2524,8 +2524,8 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
         endif       ! cloud found  (prsltmp(i) < cldp)
       end do cloud_layer
 
-!     If clear, do a 10.7 - 12 micron test for low level clouds
-    else   ! lcloud = 0
+!   If clear, do a 10.7 - 12 micron test for low level clouds
+    elseif(.not.irs) then   ! lcloud = 0
       do i=1, nchanl
         if ( nuchan(ich(i)) == ichan_10_micron ) tb_obs_10 = tb_obs(i)
         if ( nuchan(ich(i)) == ichan_12_micron ) tb_obs_12 = tb_obs(i)

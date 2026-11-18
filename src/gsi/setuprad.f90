@@ -608,14 +608,6 @@ contains
   endif
 
 ! Load data array for current satellite
-  if(obstype=='irs') then
-     print*,'jsw reading ',obstype,' from unit=',lunin
-     print*,nreal,nchanl,nobs
-!    file_name=' '
-!    inquire(unit=lunin,opened=is_opened, name=file_name)
-!    write(6,*) trim(file_name),' is opened ',is_opened
-     write(6,*) 'setuprad',1,sum(data_s(11:14,1))
-  endif
   read(lunin) data_s,luse,ioid
 
   if (nobskeep>0) then
@@ -1422,6 +1414,7 @@ contains
                  varinv_use(i) = zero
               end if
            end do
+
 
            call qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse(n),goessndr,airs,cris,iasi,      &
               iasing,hirs,irs,zsges,cenlat,frac_sea,pangs,trop5,zasat,tzbgr,tsavg5,tbc,tb_obs,tbcnob,tnoise, &

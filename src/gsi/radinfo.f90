@@ -669,7 +669,7 @@ contains
        read(crecord,*,iostat=istat) nusis_temp,nuchan_temp,iuse_rad_temp,&
             varch_temp,varch_cld_temp,ermax_rad_temp,b_rad_temp,pg_rad_temp,icld_det_temp  
        if ( .not. diag_rad .and. iuse_rad_temp < 0 .and. icld_det_temp < 0 .and. &
-          ( nusis_temp(1:4) == 'cris' .or. nusis_temp(1:4) == 'iasi' .or. nusis_temp(1:4) == 'airs')) cycle
+          ( nusis_temp(1:4) == 'cris' .or. nusis_temp(1:4) == 'iasi' .or. nusis_temp(1:4) == 'airs' .or. nusis_temp(1:3) == 'irs' )) cycle
        if ( nusis_temp(1:6) == 'seviri' .and. (nuchan_temp == 1 .or. nuchan_temp == 2 .or. nuchan_temp == 3)) then
           write(6,*) 'RADINFO_READ:  *** ERROR **** This is an obsolete satinfo file '
           write(6,*) 'RADINFO_READ:  Use an updated file or change the SEVIRI channels from 1-8 to 4-11'
@@ -750,7 +750,7 @@ contains
        if (cflg == '!') cycle
        read(crecord,*,iostat=istat) nusis(j),nuchan(j),iuse_rad(j), varch(j), &
             varch_cld(j),ermax_rad(j),b_rad(j),pg_rad(j),iextra_det(j),icw,iaeros
-             
+
        if(istat/=0) then
           call perr('radinfo_read','read(crecord), crecord =',trim(crecord))
           call perr('radinfo_read','                 istat =',istat)
@@ -869,8 +869,8 @@ contains
 !            A lot of airs, iasi and/or cris satbias_pc - satinfo entry mismatchs occur which the warning messages are not wanted.
 !            The second part of the if statement keeps from printing them.
              if ( .not. cfound ) then
-                if ((diag_rad .and. mype ==0) .or. &
-                   (.not. diag_rad .and. isis(1:4)/='airs' .and. isis(1:4) /= 'cris' .and. isis(1:7) /= 'iasi-ng' .and. isis(1:4) /= 'iasi')) &
+                if ((diag_rad .and. mype ==0) .or. (.not. diag_rad  .and. &
+                   isis(1:3)/='irs' .and. isis(1:4)/='airs' .and. isis(1:4) /= 'cris' .and. isis(1:7) /= 'iasi-ng' .and. isis(1:4) /= 'iasi')) &
                    write(6,*) '***WARNING instrument/channel ',isis,ichan,'found in satbias_pc file but not found in satinfo'
              endif
 
@@ -1112,8 +1112,8 @@ contains
 !         A lot of airs, iasi and/or cris satbias_in - satinfo entry mismatchs occur which the warning messages are not wanted.
 !         The second part of the if statement keeps from printing them.
           if ( .not. cfound ) then
-             if ((diag_rad .and. mype ==0) .or. &
-                (.not. diag_rad .and. isis(1:4)/='airs' .and. isis(1:4) /= 'cris' .and. isis(1:7) /= 'iasi-ng' .and. isis(1:4) /= 'iasi')) &
+             if ((diag_rad .and. mype ==0) .or. (.not. diag_rad .and. &
+                isis(1:3)/='irs' .and. isis(1:4)/='airs' .and. isis(1:4) /= 'cris' .and. isis(1:7) /= 'iasi-ng' .and. isis(1:4) /= 'iasi')) &
                 write(6,*) '***WARNING instrument/channel ',isis,ichan,'found in satbias_in file but not found in satinfo'
           endif
 
