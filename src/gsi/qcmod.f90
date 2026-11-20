@@ -2474,7 +2474,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
       isurface_chan = 439                       ! surface channel
       imager_chans = (/0,0/)                    ! imager channel numbers (from satinfo)
       ichan_10_micron = 439                     ! ~10.7 micron channel for low level cloud test
-      ichan_12_micron = 245                     ! ~12.0 micron channel for low level cloud test
+      ichan_12_micron = 255                     ! ~12.0 micron channel for low level cloud test
 
       call cloud_aerosol_detection( I_Sensor_ID, nchanl, chan_array, &
              tropopause_height, boundary_layer_pres, tb_bc, tsim, chan_level, imager_chans, cluster_fraction, &
@@ -2525,7 +2525,7 @@ subroutine qc_irsnd(nchanl,is,ndat,nsig,ich,sea,land,ice,snow,luse,goessndr,airs
       end do cloud_layer
 
 !   If clear, do a 10.7 - 12 micron test for low level clouds
-    elseif(.not.irs) then   ! lcloud = 0
+    else ! lcloud = 0
       do i=1, nchanl
         if ( nuchan(ich(i)) == ichan_10_micron ) tb_obs_10 = tb_obs(i)
         if ( nuchan(ich(i)) == ichan_12_micron ) tb_obs_12 = tb_obs(i)

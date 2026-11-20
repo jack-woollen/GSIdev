@@ -597,7 +597,6 @@ subroutine read_irs(mype,val_irs,ithin,isfcalc,rmesh,jsatid,gstime,&
      else
         call deter_sfc(dlat,dlon,dlat_earth,dlon_earth,t4dv,isflg,idomsfc(1),sfcpct, &
                           ts,tsavg,vty,vfr,sty,stp,sm,sn,zz,ff10,sfcr)
-        endif
      endif
 
      ! Set common predictor parameters
